@@ -43,7 +43,7 @@ const UploadAd = () => {
 
     try {
       const response = await axios.post('/api/generate-ad', formData);
-      navigate('/results', { state: { generatedAds: response.data } });
+      navigate('/results', { state: { generatedAds: response.data.data } });
     } catch (error) {
       console.error('Error generating ad:', error);
       alert('Error generating ad. Please try again.');
