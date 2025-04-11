@@ -1,6 +1,7 @@
 const { generateAd: generateAdService } = require('../utils/aiService');
 
 const generateAd = async (req, res) => {
+    console.log('Received ad data:', req.body); // Log the incoming request data
     try {
         const { 
             referenceAd,
