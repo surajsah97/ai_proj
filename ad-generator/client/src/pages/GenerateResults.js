@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import AdCard from '../components/AdCard';
-import axios from 'axios';
+import axios from '../utils/axios';
 
 const GenerateResults = () => {
   const location = useLocation();
@@ -20,7 +20,7 @@ const GenerateResults = () => {
       // Replace the old ad with the new one
       setAds(prevAds => 
         prevAds.map(prevAd => 
-          prevAd.id === ad.id ? response.data[0] : prevAd
+          prevAd.id === ad.id ? response.data.data[0] : prevAd
         )
       );
     } catch (error) {
