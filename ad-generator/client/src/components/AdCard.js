@@ -8,17 +8,31 @@ const AdCard = ({ ad, onRegenerate, onDownload }) => {
   const [activeTab, setActiveTab] = useState('preview');
   const [isHovered, setIsHovered] = useState(false);
 
-  useEffect(() => {
-    // Animate the card when it first renders
-    setTimeout(() => setAnimateIn(true), 100);
-  }, []);
-
   const [animateIn, setAnimateIn] = useState(false);
   const [error, setError] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
 
+  // Always call hooks unconditionally and before any early returns
+  useEffect(() => {
+    setAnimateIn(true);
+  }, []);
+
+  useEffect(() => {
+    if (!ad || typeof ad !== 'object') {
+      console.error('Invalid ad prop received:', ad);
+      return;
+    }
+    console.log('Ad properties types:');
+    Object.entries(ad || {}).forEach(([key, value]) => {
+      if (value && typeof value === 'object' && value.$$typeof) {
+        console.warn(`React element found in ad property "${key}"`);
+      } else {
+        console.log(`Property "${key}": type ${typeof value}`);
+      }
+    });
+  }, [ad]);
+
   if (!ad || typeof ad !== 'object') {
-    console.error('Invalid ad prop received:', ad);
     return <div className="text-red-500 p-4">Error: Invalid ad data</div>;
   }
 
@@ -36,18 +50,6 @@ const AdCard = ({ ad, onRegenerate, onDownload }) => {
   const safeHeadline = typeof headline === 'object' ? JSON.stringify(headline) : headline;
   const safeSubheadline = typeof subheadline === 'object' ? JSON.stringify(subheadline) : subheadline;
   const safeCta = typeof cta === 'object' ? JSON.stringify(cta) : cta;
-
-  // Add detailed logging of ad properties to identify React elements
-  useEffect(() => {
-    console.log('Ad properties types:');
-    Object.entries(ad).forEach(([key, value]) => {
-      if (value && typeof value === 'object' && value.$$typeof) {
-        console.warn(`React element found in ad property "${key}"`);
-      } else {
-        console.log(`Property "${key}": type ${typeof value}`);
-      }
-    });
-  }, [ad]);
 
   // Define missing handlers to avoid no-undef errors
   const handleCtaClick = () => {
