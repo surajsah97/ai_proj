@@ -7,20 +7,66 @@ const GenerateResults = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
-  const [ads, setAds] = useState(location.state?.generatedAds || []);
+  const [ads, setAds] = useState(() => {
+    const initialAds = location.state?.generatedAds || [];
+    console.log('Initial ads data:', initialAds);
 
-  const handleRegenerate = async (ad) => {
+    // Recursive function to sanitize ad object properties and log types
+    function sanitizeAd(ad, path = '') {
+      if (ad === null || ad === undefined) return ad;
+      if (typeof ad === 'string' || typeof ad === 'number' || typeof ad === 'boolean') return ad;
+      if (Array.isArray(ad)) {
+        return ad.map((item, index) => sanitizeAd(item, `${path}[${index}]`));
+      }
+      if (typeof ad === 'object') {
+        // If it's a React element (has $$typeof), convert to string placeholder and log
+        if (ad.$$typeof) {
+          console.warn(`React element found at ${path}, replacing with placeholder`);
+          return '[React Element]';
+        }
+        // Defensive: if object has React children or props that are React elements, sanitize them too
+        const sanitized = {};
+        for (const key in ad) {
+          if (Object.prototype.hasOwnProperty.call(ad, key)) {
+            sanitized[key] = sanitizeAd(ad[key], path ? `${path}.${key}` : key);
+          }
+        }
+        return sanitized;
+      }
+      console.warn(`Unexpected type at ${path}:`, typeof ad);
+      return String(ad);
+    }
+
+    const sanitizedAds = Array.isArray(initialAds)
+      ? initialAds.map((ad, index) => sanitizeAd(ad, `ads[${index}]`))
+      : [sanitizeAd(initialAds, 'ads[0]')];
+
+    console.log('Sanitized ads data:', sanitizedAds);
+    return sanitizedAds;
+  });
+
+  const handleRegenerate = async (ad, element = null) => {
     setIsLoading(true);
     try {
       const response = await axios.post('/api/generate-ad', {
         ...ad,
-        regenerate: true
+        regenerate: true,
+        regenerateElement: element
       });
       
+      if (!response.data || !response.data.data || !Array.isArray(response.data.data)) {
+        throw new Error('Invalid response format from server');
+      }
+
+      const newAd = response.data.data[0];
+      if (!newAd || typeof newAd !== 'object') {
+        throw new Error('Invalid ad data received from server');
+      }
+
       // Replace the old ad with the new one
       setAds(prevAds => 
         prevAds.map(prevAd => 
-          prevAd.id === ad.id ? response.data.data[0] : prevAd
+          prevAd.id === ad.id ? newAd : prevAd
         )
       );
     } catch (error) {
@@ -30,37 +76,27 @@ const GenerateResults = () => {
       setIsLoading(false);
     }
   };
+  const handleDownload = async (ad, format) => {
+    try {
+      const downloadUrl = ad.downloadUrls?.[format];
+      if (!downloadUrl) {
+        throw new Error(`Download URL for ${format} not found`);
+      }
 
-  const handleDownload = (ad) => {
-    // Create a JSON blob and trigger download
-    const data = JSON.stringify(ad, null, 2);
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `ad-${ad.id}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
+      // Create a temporary link element
+      const link = document.createElement('a');
+      link.href = downloadUrl.startsWith('http') ? downloadUrl : `${axios.defaults.baseURL}${downloadUrl}`;
+      link.download = `ad-${ad.id}.${format}`;
+      
+      // Append to body, click, and remove
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      alert('Error downloading file. Please try again.');
+    }
   };
-
-  if (!location.state?.generatedAds) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">No Ads Generated</h2>
-          <p className="text-gray-600 mb-8">Please upload a reference ad to generate new advertisements.</p>
-          <button
-            onClick={() => navigate('/upload')}
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Create New Ad
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
@@ -68,10 +104,10 @@ const GenerateResults = () => {
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-3xl font-bold text-gray-900 mb-4">
-            Generated Advertisements
+            AI-Generated Advertisements
           </h1>
           <p className="text-gray-600 max-w-2xl mx-auto">
-            Here are your AI-generated advertisements. You can regenerate any ad or download them for your use.
+            Here are your AI-generated advertisements. You can regenerate any element or download them in different formats.
           </p>
         </div>
 
